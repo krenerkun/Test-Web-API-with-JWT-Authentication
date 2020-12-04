@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
@@ -12,6 +13,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 using WebAPI.Context;
 using WebAPI.Managers;
 using WebAPI.Managers.Interfaces;
@@ -38,6 +40,28 @@ namespace WebAPI
             var appSettings = appSettingsSection.Get<AppSettings>();
 
 
+            //Add Authentication
+            services.AddAuthentication(configureOptions =>
+            {
+                configureOptions.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                configureOptions.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+
+            }).AddJwtBearer(authenticationScheme => {
+
+                //should be false in development stage
+                authenticationScheme.RequireHttpsMetadata = false;
+                authenticationScheme.SaveToken = true;
+                authenticationScheme.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+                {
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    ValidateIssuerSigningKey = true,
+                    ValidateLifetime = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(appSettings.SecretKey))
+                };
+            });
+
+            //Add Database Context
             services.AddDbContext<RefreshTokenContext>(options => {
                 options.UseSqlServer(Configuration.GetConnectionString("MainDbConnectionString"));
             });
@@ -65,6 +89,8 @@ namespace WebAPI
             }
 
             app.UseHttpsRedirection();
+
+            app.UseAuthentication();
 
             app.UseRouting();
 
